@@ -62,8 +62,14 @@ export const api = {
   getChannel: (code: string, memberId: string) =>
     request<Channel>(`/channels/${code}`, {}, memberId),
 
-  sendRing: (code: string, memberId: string) =>
-    request<Ring>(`/channels/${code}/rings`, { method: 'POST' }, memberId),
+  sendRing: (code: string, memberId: string, audio?: Blob) =>
+    request<Ring>(
+      `/channels/${code}/rings`,
+      audio
+        ? { method: 'POST', headers: { 'Content-Type': audio.type || 'application/octet-stream' }, body: audio }
+        : { method: 'POST' },
+      memberId,
+    ),
 
   getRing: (ringId: string, memberId: string) =>
     request<Ring>(`/rings/${ringId}`, {}, memberId),

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import Header from '../components/Header';
 import { api } from '../api/client';
+import { playRingtone } from '../ringtone';
 import type { Ring, Theme } from '../types';
 import type { useLocalChannels } from '../hooks/useLocalChannels';
 
@@ -24,6 +25,18 @@ export default function RingPage({ ringId, theme, onToggleTheme, localChannels }
   const [ackedNames, setAckedNames] = useState<string[]>([]);
 
   const local = ring ? localChannels.get(ring.channelCode) : null;
+  const stopRingtoneRef = useRef<(() => void) | null>(null);
+
+  // Ring for as long as this screen is in the 'ringing' state; stop on accept/dismiss.
+  useEffect(() => {
+    if (status === 'ringing') {
+      stopRingtoneRef.current = playRingtone();
+    }
+    return () => {
+      stopRingtoneRef.current?.();
+      stopRingtoneRef.current = null;
+    };
+  }, [status]);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +84,21 @@ export default function RingPage({ ringId, theme, onToggleTheme, localChannels }
     try {
       await api.ackRing(ringId, local.memberId);
     } catch {}
+
+    // The tap that got us here satisfies the browser's autoplay gesture
+    // requirement, so play the voice note (if any) right away.
+    if (ring?.hasAudio) {
+      try {
+        const blob = await api.getRingAudio(ringId, local.memberId);
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.addEventListener('ended', () => URL.revokeObjectURL(url));
+        await audio.play().catch(() => {});
+      } catch {
+        // no audio available / failed to fetch — not fatal
+      }
+    }
+
     // Navigate back after a moment
     setTimeout(() => {
       if (ring) navigate(`/c/${ring.channelCode}`);
@@ -158,7 +186,9 @@ export default function RingPage({ ringId, theme, onToggleTheme, localChannels }
                   ) : ring ? (
                     <>
                       <p className="text-nm font-bold text-xl">{ring.senderName} is ringing!</p>
-                      <p className="text-nm-muted text-sm">Channel · {ring.channelCode}</p>
+                      <p className="text-nm-muted text-sm">
+                        Channel · {ring.channelCode}{ring.hasAudio ? ' · 🎤 Voice note' : ''}
+                      </p>
                     </>
                   ) : (
                     <>

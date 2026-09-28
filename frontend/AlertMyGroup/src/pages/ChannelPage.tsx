@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation } from 'wouter';
 import Header from '../components/Header';
 import MemberCard from '../components/MemberCard';
@@ -9,6 +9,16 @@ import type { Channel, Theme } from '../types';
 import type { useLocalChannels } from '../hooks/useLocalChannels';
 
 type LocalChannels = ReturnType<typeof useLocalChannels>;
+
+const HOLD_THRESHOLD_MS = 350;
+const MAX_RECORD_MS = 20_000;
+
+function pickRecorderMimeType(): string {
+  if (typeof MediaRecorder === 'undefined') return '';
+  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) return 'audio/webm;codecs=opus';
+  if (MediaRecorder.isTypeSupported('audio/mp4')) return 'audio/mp4';
+  return '';
+}
 
 interface Props {
   code: string;
@@ -29,6 +39,13 @@ export default function ChannelPage({ code, theme, onToggleTheme, localChannels 
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   const [pushNotice, setPushNotice] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+
+  const holdTimerRef = useRef<number | null>(null);
+  const maxDurationTimerRef = useRef<number | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
 
   // Redirect to join if not a member
   useEffect(() => {
@@ -71,12 +88,12 @@ export default function ChannelPage({ code, theme, onToggleTheme, localChannels 
     return () => clearInterval(id);
   }, [fetchChannel]);
 
-  const handleRing = async () => {
-    if (!local || ringing) return;
+  const doSendRing = useCallback(async (audio?: Blob) => {
+    if (!local) return;
     setRinging(true);
     setRingSuccess(false);
     try {
-      await api.sendRing(code, local.memberId);
+      await api.sendRing(code, local.memberId, audio);
       setRingSuccess(true);
       setTimeout(() => setRingSuccess(false), 3000);
     } catch {
@@ -84,7 +101,95 @@ export default function ChannelPage({ code, theme, onToggleTheme, localChannels 
     } finally {
       setRinging(false);
     }
+  }, [code, local]);
+
+  const handleRing = useCallback(() => {
+    doSendRing();
+  }, [doSendRing]);
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mimeType = pickRecorderMimeType();
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      chunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        streamRef.current?.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+        setIsRecording(false);
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || mimeType || 'audio/webm' });
+        chunksRef.current = [];
+        doSendRing(blob);
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+      maxDurationTimerRef.current = window.setTimeout(() => {
+        mediaRecorderRef.current?.stop();
+      }, MAX_RECORD_MS);
+    } catch {
+      setError('Microphone access is needed to record a voice note.');
+    }
+  }, [doSendRing]);
+
+  const stopRecording = useCallback(() => {
+    if (maxDurationTimerRef.current !== null) {
+      clearTimeout(maxDurationTimerRef.current);
+      maxDurationTimerRef.current = null;
+    }
+    mediaRecorderRef.current?.stop();
+    mediaRecorderRef.current = null;
+  }, []);
+
+  // Quick tap = ring now; press and hold = record a voice note, sent on release.
+  const handleRingPointerDown = () => {
+    if (ringing || loading || isRecording) return;
+    holdTimerRef.current = window.setTimeout(() => {
+      holdTimerRef.current = null;
+      startRecording();
+    }, HOLD_THRESHOLD_MS);
   };
+
+  const handleRingPointerUp = () => {
+    if (holdTimerRef.current !== null) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+      handleRing();
+      return;
+    }
+    if (isRecording) stopRecording();
+  };
+
+  const handleRingPointerCancel = () => {
+    if (holdTimerRef.current !== null) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+      return;
+    }
+    if (isRecording) stopRecording();
+  };
+
+  const handleRingKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleRing();
+    }
+  };
+
+  // Stop mic/timers if the page unmounts mid-recording
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current !== null) clearTimeout(holdTimerRef.current);
+      if (maxDurationTimerRef.current !== null) clearTimeout(maxDurationTimerRef.current);
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    };
+  }, []);
 
   const handleAck = async () => {
     if (!local || !channel?.latestRing) return;
@@ -175,40 +280,49 @@ export default function ChannelPage({ code, theme, onToggleTheme, localChannels 
         <div className="flex flex-col items-center gap-4 py-4">
           <div className="relative flex items-center justify-center">
             {/* Ripple behind */}
-            {ringing && (
+            {(ringing || isRecording) && (
               <>
-                <div className="absolute rounded-full ring-ripple" style={{ width: 180, height: 180, background: 'var(--nm-accent-glow)' }} />
-                <div className="absolute rounded-full ring-ripple-2" style={{ width: 180, height: 180, background: 'var(--nm-accent-glow)' }} />
+                <div className="absolute rounded-full ring-ripple" style={{ width: 180, height: 180, background: isRecording ? 'var(--nm-danger-glow)' : 'var(--nm-accent-glow)' }} />
+                <div className="absolute rounded-full ring-ripple-2" style={{ width: 180, height: 180, background: isRecording ? 'var(--nm-danger-glow)' : 'var(--nm-accent-glow)' }} />
               </>
             )}
             <button
-              onClick={handleRing}
+              onPointerDown={handleRingPointerDown}
+              onPointerUp={handleRingPointerUp}
+              onPointerLeave={handleRingPointerCancel}
+              onPointerCancel={handleRingPointerCancel}
+              onKeyDown={handleRingKeyDown}
               disabled={ringing || loading}
-              aria-label="Ring everyone"
+              aria-label="Ring everyone. Press and hold to record a voice note."
+              style={isRecording ? { boxShadow: '0 0 0 4px var(--nm-danger), 14px 14px 28px var(--nm-sd), -14px -14px 28px var(--nm-sl)' } : undefined}
               className={[
-                'nm-ring-btn w-44 h-44 rounded-full flex flex-col items-center justify-center gap-2 focus:outline-none',
-                !ringing && !loading ? 'nm-ring-btn-pulse' : '',
+                'nm-ring-btn w-44 h-44 rounded-full flex flex-col items-center justify-center gap-2 focus:outline-none select-none touch-none',
+                !ringing && !loading && !isRecording ? 'nm-ring-btn-pulse' : '',
               ].join(' ')}
             >
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ color: ringing ? 'var(--nm-success)' : 'var(--nm-accent)' }}
-              >
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-              </svg>
-              <span className="font-bold text-lg" style={{ color: ringing ? 'var(--nm-success)' : 'var(--nm-accent)' }}>
-                {ringing ? 'Ringing…' : ringSuccess ? 'Sent!' : 'RING'}
+              {isRecording ? (
+                <span className="w-4 h-4 rounded-full recording-dot" style={{ background: 'var(--nm-danger)' }} />
+              ) : (
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ color: ringing ? 'var(--nm-success)' : 'var(--nm-accent)' }}
+                >
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+              )}
+              <span className="font-bold text-lg" style={{ color: isRecording ? 'var(--nm-danger)' : ringing ? 'var(--nm-success)' : 'var(--nm-accent)' }}>
+                {isRecording ? 'Recording…' : ringing ? 'Ringing…' : ringSuccess ? 'Sent!' : 'RING'}
               </span>
               <span className="text-nm-muted text-xs text-center px-4">
-                {ringing ? 'Alerting everyone' : 'Tap to alert all'}
+                {isRecording ? 'Release to send' : ringing ? 'Alerting everyone' : 'Tap to alert · hold to record'}
               </span>
             </button>
           </div>
