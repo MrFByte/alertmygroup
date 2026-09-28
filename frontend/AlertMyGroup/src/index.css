@@ -1,0 +1,198 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --nm-bg: #e0e5ec;
+    --nm-sd: #b8bec7;
+    --nm-sl: #ffffff;
+    --nm-text: #2d3748;
+    --nm-muted: #718096;
+    --nm-accent: #7c3aed;
+    --nm-accent-glow: rgba(124, 58, 237, 0.35);
+    --nm-success: #059669;
+    --nm-success-glow: rgba(5, 150, 105, 0.35);
+    --nm-danger: #dc2626;
+    --nm-danger-glow: rgba(220, 38, 38, 0.35);
+  }
+
+  .dark {
+    --nm-bg: #1e2130;
+    --nm-sd: #141520;
+    --nm-sl: #282d41;
+    --nm-text: #e2e8f0;
+    --nm-muted: #94a3b8;
+    --nm-accent: #9b6dff;
+    --nm-accent-glow: rgba(155, 109, 255, 0.35);
+    --nm-success: #34d399;
+    --nm-success-glow: rgba(52, 211, 153, 0.35);
+    --nm-danger: #f87171;
+    --nm-danger-glow: rgba(248, 113, 113, 0.35);
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--nm-bg);
+    color: var(--nm-text);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    min-height: 100dvh;
+    font-family: system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer utilities {
+  /* Base neumorphic surfaces */
+  .nm-flat {
+    background: var(--nm-bg);
+    box-shadow: 6px 6px 12px var(--nm-sd), -6px -6px 12px var(--nm-sl);
+  }
+  .nm-flat-lg {
+    background: var(--nm-bg);
+    box-shadow: 10px 10px 20px var(--nm-sd), -10px -10px 20px var(--nm-sl);
+  }
+  .nm-flat-sm {
+    background: var(--nm-bg);
+    box-shadow: 3px 3px 6px var(--nm-sd), -3px -3px 6px var(--nm-sl);
+  }
+  .nm-pressed {
+    background: var(--nm-bg);
+    box-shadow: inset 4px 4px 8px var(--nm-sd), inset -4px -4px 8px var(--nm-sl);
+  }
+
+  /* Button */
+  .nm-btn {
+    background: var(--nm-bg);
+    box-shadow: 4px 4px 8px var(--nm-sd), -4px -4px 8px var(--nm-sl);
+    transition: box-shadow 0.15s ease, transform 0.1s ease;
+    cursor: pointer;
+    user-select: none;
+  }
+  .nm-btn:active,
+  .nm-btn.pressed {
+    box-shadow: inset 3px 3px 6px var(--nm-sd), inset -3px -3px 6px var(--nm-sl);
+    transform: scale(0.97);
+  }
+  .nm-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  /* Input */
+  .nm-input {
+    background: var(--nm-bg);
+    box-shadow: inset 3px 3px 7px var(--nm-sd), inset -3px -3px 7px var(--nm-sl);
+    color: var(--nm-text);
+    border: none;
+    outline: none;
+    transition: box-shadow 0.2s ease;
+  }
+  .nm-input::placeholder {
+    color: var(--nm-muted);
+  }
+  .nm-input:focus {
+    box-shadow: inset 4px 4px 9px var(--nm-sd), inset -4px -4px 9px var(--nm-sl),
+      0 0 0 2px var(--nm-accent);
+  }
+
+  /* Accent color tokens */
+  .text-nm       { color: var(--nm-text); }
+  .text-nm-muted { color: var(--nm-muted); }
+  .text-nm-accent { color: var(--nm-accent); }
+  .text-nm-success { color: var(--nm-success); }
+  .text-nm-danger { color: var(--nm-danger); }
+  .bg-nm         { background-color: var(--nm-bg); }
+  .border-nm-accent { border-color: var(--nm-accent); }
+}
+
+/* ── Big ring button ── */
+.nm-ring-btn {
+  background: var(--nm-bg);
+  box-shadow: 14px 14px 28px var(--nm-sd), -14px -14px 28px var(--nm-sl);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+  cursor: pointer;
+  user-select: none;
+}
+.nm-ring-btn:active {
+  box-shadow: inset 8px 8px 16px var(--nm-sd), inset -8px -8px 16px var(--nm-sl);
+  transform: scale(0.95);
+}
+
+@keyframes ring-pulse {
+  0%, 100% {
+    box-shadow:
+      14px 14px 28px var(--nm-sd),
+      -14px -14px 28px var(--nm-sl),
+      0 0 0 0 var(--nm-accent-glow);
+  }
+  50% {
+    box-shadow:
+      14px 14px 28px var(--nm-sd),
+      -14px -14px 28px var(--nm-sl),
+      0 0 0 22px transparent;
+  }
+}
+.nm-ring-btn-pulse {
+  animation: ring-pulse 1.8s ease-out infinite;
+}
+
+/* ── Incoming ring full-screen ripple ── */
+@keyframes ripple-out {
+  0%   { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+.ring-ripple {
+  animation: ripple-out 1.8s ease-out infinite;
+}
+.ring-ripple-2 {
+  animation: ripple-out 1.8s ease-out 0.6s infinite;
+}
+.ring-ripple-3 {
+  animation: ripple-out 1.8s ease-out 1.2s infinite;
+}
+
+/* ── Success / danger accent buttons ── */
+.nm-btn-success {
+  background: var(--nm-bg);
+  box-shadow: 4px 4px 8px var(--nm-sd), -4px -4px 8px var(--nm-sl),
+    0 0 0 2px var(--nm-success);
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+  cursor: pointer;
+}
+.nm-btn-success:active {
+  box-shadow: inset 3px 3px 6px var(--nm-sd), inset -3px -3px 6px var(--nm-sl),
+    0 0 0 2px var(--nm-success);
+  transform: scale(0.97);
+}
+
+.nm-btn-danger {
+  background: var(--nm-bg);
+  box-shadow: 4px 4px 8px var(--nm-sd), -4px -4px 8px var(--nm-sl),
+    0 0 0 2px var(--nm-danger);
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+  cursor: pointer;
+}
+.nm-btn-danger:active {
+  box-shadow: inset 3px 3px 6px var(--nm-sd), inset -3px -3px 6px var(--nm-sl),
+    0 0 0 2px var(--nm-danger);
+  transform: scale(0.97);
+}
+
+/* ── Recording indicator ── */
+@keyframes rec-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
+}
+.recording-dot {
+  animation: rec-blink 1s ease-in-out infinite;
+}
+
+/* ── Scroll ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--nm-sd); border-radius: 2px; }
