@@ -3,6 +3,7 @@ name = "alertmygroup-api"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
+    "certifi>=2026.7.22",
     "fastapi[standard]>=0.141.1",
     "motor>=3.7.1",
     "pywebpush>=2.5.0",

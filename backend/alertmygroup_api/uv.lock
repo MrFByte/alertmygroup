@@ -95,6 +95,7 @@ name = "alertmygroup-api"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "certifi" },
     { name = "fastapi", extra = ["standard"] },
     { name = "motor" },
     { name = "pywebpush" },
@@ -102,6 +103,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi", specifier = ">=2026.7.22" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.141.1" },
     { name = "motor", specifier = ">=3.7.1" },
     { name = "pywebpush", specifier = ">=2.5.0" },
