@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import MemberCard from '../components/MemberCard';
 import IncomingRingBanner from '../components/IncomingRingBanner';
 import { api } from '../api/client';
+import { setupPush } from '../push';
 import type { Channel, Theme } from '../types';
 import type { useLocalChannels } from '../hooks/useLocalChannels';
 
@@ -27,6 +28,7 @@ export default function ChannelPage({ code, theme, onToggleTheme, localChannels 
   const [dismissedRingId, setDismissedRingId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
+  const [pushNotice, setPushNotice] = useState('');
 
   // Redirect to join if not a member
   useEffect(() => {
@@ -34,6 +36,22 @@ export default function ChannelPage({ code, theme, onToggleTheme, localChannels 
       navigate(`/c/${code}`, { replace: true });
     }
   }, [local, code, navigate]);
+
+  // Ask for push permission right after landing here (fresh join/create, or
+  // a later visit if it was never granted). Calling this when permission is
+  // already granted/denied is a no-op re: prompting, so it's safe to re-run.
+  useEffect(() => {
+    if (!local) return;
+    setupPush(local.memberId).then(result => {
+      if (result.status === 'unsupported') {
+        setPushNotice("This browser doesn't support push notifications — AlertMyGroup still works while the app is open.");
+      } else if (result.status === 'denied') {
+        setPushNotice("Notifications are blocked, so you won't get alerts when the app is closed. Enable them in your browser settings for background alerts.");
+      } else if (result.status === 'error') {
+        setPushNotice("Couldn't set up push notifications — AlertMyGroup still works while the app is open.");
+      }
+    });
+  }, [local]);
 
   const fetchChannel = useCallback(async () => {
     if (!local) return;
@@ -143,6 +161,13 @@ export default function ChannelPage({ code, theme, onToggleTheme, localChannels 
           <div className="nm-flat rounded-2xl p-3 w-full text-center">
             <p className="text-nm-danger text-sm">{error}</p>
             <button onClick={() => setError('')} className="text-nm-muted text-xs mt-1 underline focus:outline-none">Dismiss</button>
+          </div>
+        )}
+
+        {pushNotice && (
+          <div className="nm-flat rounded-2xl p-3 w-full text-center">
+            <p className="text-nm-muted text-sm">{pushNotice}</p>
+            <button onClick={() => setPushNotice('')} className="text-nm-muted text-xs mt-1 underline focus:outline-none">Dismiss</button>
           </div>
         )}
 
