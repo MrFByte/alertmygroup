@@ -18,25 +18,52 @@ type Status = 'ringing' | 'accepted' | 'dismissed';
 
 export default function RingPage({ ringId, theme, onToggleTheme, localChannels }: Props) {
   const [, navigate] = useLocation();
-  const [ring] = useState<Ring | null>(null);
+  const [ring, setRing] = useState<Ring | null>(null);
   const [status, setStatus] = useState<Status>('ringing');
   const [loading, setLoading] = useState(true);
-  const [ackedNames] = useState<string[]>([]);
+  const [ackedNames, setAckedNames] = useState<string[]>([]);
 
   const local = ring ? localChannels.get(ring.channelCode) : null;
 
   useEffect(() => {
+    let cancelled = false;
+
     async function load() {
-      try {
-        const data = await api.getChannel('__ring__', '').catch(() => null);
-        void data; // channel load might fail without member context — that's okay
-      } catch {}
-      setLoading(false);
+      setLoading(true);
+      // The ring's channel isn't known up front, so try each locally-stored
+      // channel's memberId until the backend accepts one (device may belong
+      // to more than one channel, though typically just one).
+      for (const candidate of localChannels.channels) {
+        try {
+          const data = await api.getRing(ringId, candidate.memberId);
+          if (cancelled) return;
+          setRing(data);
+
+          try {
+            const channel = await api.getChannel(data.channelCode, candidate.memberId);
+            if (cancelled) return;
+            const names = data.acks
+              .map(a => channel.members.find(m => m.id === a.memberId)?.name)
+              .filter((name): name is string => Boolean(name));
+            setAckedNames(names);
+          } catch {
+            // ack names are a nice-to-have; ring info alone is enough to render
+          }
+
+          setLoading(false);
+          return;
+        } catch {
+          // not a member of this ring's channel — try the next stored channel
+        }
+      }
+      if (!cancelled) setLoading(false);
     }
+
     load();
-    // Minimal: just mark as loaded after a beat
-    setTimeout(() => setLoading(false), 600);
-  }, [ringId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [ringId, localChannels]);
 
   const handleAccept = async () => {
     setStatus('accepted');

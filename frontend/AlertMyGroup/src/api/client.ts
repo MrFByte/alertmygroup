@@ -43,6 +43,20 @@ export const api = {
   sendRing: (code: string, memberId: string) =>
     request<Ring>(`/channels/${code}/rings`, { method: 'POST' }, memberId),
 
+  getRing: (ringId: string, memberId: string) =>
+    request<Ring>(`/rings/${ringId}`, {}, memberId),
+
+  getRingAudio: async (ringId: string, memberId: string): Promise<Blob> => {
+    const res = await fetch(`${BASE}/rings/${ringId}/audio`, {
+      headers: { 'x-member': memberId },
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => res.statusText);
+      throw new Error(text || `Error ${res.status}`);
+    }
+    return res.blob();
+  },
+
   ackRing: (ringId: string, memberId: string) =>
     request<void>(`/rings/${ringId}/ack`, { method: 'POST' }, memberId),
 
