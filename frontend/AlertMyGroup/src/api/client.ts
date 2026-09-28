@@ -2,6 +2,29 @@ import type { Channel, Ring } from '../types';
 
 const BASE = '/api';
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+// FastAPI error bodies look like {"detail": "..."}; unwrap that instead of
+// throwing the raw JSON text as the error message.
+async function errorMessage(res: Response): Promise<string> {
+  const text = await res.text().catch(() => '');
+  if (!text) return res.statusText || `Error ${res.status}`;
+  try {
+    const data = JSON.parse(text) as { detail?: unknown };
+    if (typeof data.detail === 'string') return data.detail;
+  } catch {
+    // not JSON — fall back to the raw text below
+  }
+  return text;
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -16,8 +39,7 @@ async function request<T>(
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(text || `Error ${res.status}`);
+    throw new ApiError(await errorMessage(res), res.status);
   }
 
   if (res.status === 204) return undefined as T;
@@ -51,8 +73,7 @@ export const api = {
       headers: { 'x-member': memberId },
     });
     if (!res.ok) {
-      const text = await res.text().catch(() => res.statusText);
-      throw new Error(text || `Error ${res.status}`);
+      throw new ApiError(await errorMessage(res), res.status);
     }
     return res.blob();
   },

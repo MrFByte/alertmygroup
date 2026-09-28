@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation } from 'wouter';
 import Header from '../components/Header';
 import NeumorphicButton from '../components/NeumorphicButton';
+import { ApiError } from '../api/client';
 import type { Theme } from '../types';
 import type { useLocalChannels } from '../hooks/useLocalChannels';
 
@@ -32,7 +33,13 @@ export default function JoinPage({ code, theme, onToggleTheme, localChannels, on
     try {
       await onJoin(code, password, displayName.trim());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Channel not found or wrong password');
+      if (err instanceof ApiError && err.status === 401) {
+        setError('Wrong password — ask whoever invited you to confirm it.');
+      } else if (err instanceof ApiError && err.status === 404) {
+        setError('Channel not found — double-check the code.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Something went wrong');
+      }
     } finally {
       setLoading(false);
     }
