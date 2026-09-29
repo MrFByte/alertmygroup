@@ -1,7 +1,10 @@
 {
+  "id": "/",
   "name": "AlertMyGroup",
   "short_name": "AlertMyGroup",
   "description": "Alert everyone in your group with one tap — for runs, gyms, or coffee meetups.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

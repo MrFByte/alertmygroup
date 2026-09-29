@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage';
 import JoinPage from './pages/JoinPage';
 import ChannelPage from './pages/ChannelPage';
 import RingPage from './pages/RingPage';
+import InstallPrompt from './components/InstallPrompt';
 import type { Theme } from './types';
 import type { useLocalChannels as LocalChannelsHook } from './hooks/useLocalChannels';
 
@@ -53,7 +54,7 @@ function ChannelRouter({ params, shared }: { params: { code: string }; shared: S
 export default function App() {
   const { theme, toggle } = useTheme();
   const localChannels = useLocalChannels();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
 
   const shared: SharedProps = { theme, onToggleTheme: toggle, localChannels };
 
@@ -64,41 +65,46 @@ export default function App() {
   };
 
   return (
-    <Switch>
-      <Route path="/">
-        <HomePage
-          theme={theme}
-          onToggleTheme={toggle}
-          localChannels={localChannels}
-          onCreateChannel={handleCreateChannel}
-        />
-      </Route>
-
-      <Route path="/c/:code">
-        {(params) => params
-          ? <ChannelRouter params={params} shared={shared} />
-          : null}
-      </Route>
-
-      <Route<{ id: string }> path="/r/:id">
-        {(params) => params?.id ? (
-          <RingPage
-            ringId={params.id}
+    <>
+      <Switch>
+        <Route path="/">
+          <HomePage
             theme={theme}
             onToggleTheme={toggle}
             localChannels={localChannels}
+            onCreateChannel={handleCreateChannel}
           />
-        ) : null}
-      </Route>
+        </Route>
 
-      <Route>
-        <HomePage
-          theme={theme}
-          onToggleTheme={toggle}
-          localChannels={localChannels}
-          onCreateChannel={handleCreateChannel}
-        />
-      </Route>
-    </Switch>
+        <Route path="/c/:code">
+          {(params) => params
+            ? <ChannelRouter params={params} shared={shared} />
+            : null}
+        </Route>
+
+        <Route<{ id: string }> path="/r/:id">
+          {(params) => params?.id ? (
+            <RingPage
+              ringId={params.id}
+              theme={theme}
+              onToggleTheme={toggle}
+              localChannels={localChannels}
+            />
+          ) : null}
+        </Route>
+
+        <Route>
+          <HomePage
+            theme={theme}
+            onToggleTheme={toggle}
+            localChannels={localChannels}
+            onCreateChannel={handleCreateChannel}
+          />
+        </Route>
+      </Switch>
+
+      {/* Not on the full-screen ringing page — it shouldn't compete for attention there */}
+      {!location.startsWith('/r/') && <InstallPrompt />}
+    </>
   );
 }

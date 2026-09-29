@@ -6,6 +6,13 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// Plain network passthrough — no caching strategy yet (out of scope for
+// Phase 1), just enough presence to satisfy installability checks that look
+// for a fetch handler on some Android browsers.
+self.addEventListener('fetch', (event) => {
+  event.respondWith(fetch(event.request));
+});
+
 self.addEventListener('push', (event) => {
   let data = {};
   try {

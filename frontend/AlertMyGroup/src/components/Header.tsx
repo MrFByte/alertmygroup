@@ -10,7 +10,10 @@ interface Props {
 
 export default function Header({ theme, onToggleTheme, onBack, title }: Props) {
   return (
-    <header className="flex items-center justify-between px-4 py-3 sticky top-0 z-10 bg-nm">
+    <header
+      className="flex items-center justify-between px-4 pb-3 sticky top-0 z-10 bg-nm"
+      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+    >
       <div className="flex items-center gap-3 min-w-0">
         {onBack ? (
           <button
